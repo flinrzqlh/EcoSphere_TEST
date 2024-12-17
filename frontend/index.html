@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoSphere - Smart Home Energy Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-4xl font-bold text-center text-green-600 mb-8">EcoSphere</h1>
+
+        <!-- Chatbot Section -->
+        <div class="bg-white shadow-md rounded-lg p-6 mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">AI Chatbot</h2>
+            <div id="chat-container" class="mb-4 h-64 overflow-y-auto border p-4 rounded">
+                <div id="chat-messages" class="space-y-2"></div>
+            </div>
+            <div class="flex">
+                <input 
+                    type="text" 
+                    id="chat-input" 
+                    class="flex-grow p-2 border rounded-l"
+                    placeholder="Ask me anything about your smart home..."
+                >
+                <button 
+                    id="send-btn" 
+                    class="bg-green-500 text-white px-4 py-2 rounded-r hover:bg-green-600"
+                >
+                    Send
+                </button>
+            </div>
+        </div>
+
+        <!-- Energy Analysis Section -->
+        <div class="bg-white shadow-md rounded-lg p-6">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Energy Analysis</h2>
+            <div class="mb-4">
+                <label class="block mb-2 text-gray-700">Upload CSV File</label>
+                <input 
+                    type="file" 
+                    id="csv-upload" 
+                    accept=".csv" 
+                    class="w-full p-2 border rounded"
+                >
+            </div>
+            <button 
+                id="analyze-btn" 
+                class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            >
+                Analyze Energy Consumption
+            </button>
+            <div id="analysis-results" class="mt-4 p-4 bg-gray-100 rounded"></div>
+        </div>
+    </div>
+
+    <script>
+        // Chatbot functionality
+        document.getElementById('send-btn').addEventListener('click', async () => {
+            const input = document.getElementById('chat-input');
+            const messagesContainer = document.getElementById('chat-messages');
+            const message = input.value.trim();
+
+            if (!message) return;
+
+            // Add user message
+            messagesContainer.innerHTML += `
+                <div class="text-right">
+                    <div class="bg-blue-100 inline-block p-2 rounded">
+                        ${message}
+                    </div>
+                </div>
+            `;
+
+            // Clear input
+            input.value = '';
+
+            try {
+                const response = await fetch('http://localhost:8080/chatbot', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        role: "user", 
+                        content: message 
+                    })
+                });
+
+                const data = await response.json();
+
+                // Add AI response
+                messagesContainer.innerHTML += `
+                    <div class="text-left">
+                        <div class="bg-green-100 inline-block p-2 rounded">
+                            ${data.content || 'Sorry, I could not process your request.'}
+                        </div>
+                    </div>
+                `;
+
+                // Scroll to bottom
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            } catch (error) {
+                console.error('Error:', error);
+                messagesContainer.innerHTML += `
+                    <div class="text-left">
+                        <div class="bg-red-100 inline-block p-2 rounded">
+                            Error: ${error.message}
+                        </div>
+                    </div>
+                `;
+            }
+        });
+
+        // Allow sending message with Enter key
+        document.getElementById('chat-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('send-btn').click();
+            }
+        });
+
+        // Energy Analysis functionality
+        document.getElementById('analyze-btn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('csv-upload');
+            const resultsContainer = document.getElementById('analysis-results');
+
+            if (!fileInput.files.length) {
+                alert('Please upload a CSV file first');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('http://localhost:8080/energy-analysis', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const data = await response.json();
+
+                resultsContainer.innerHTML = `
+                    <h3 class="font-bold mb-2">Energy Consumption Analysis</h3>
+                    <p>Least Consuming Appliance: ${data.least_consuming} (${data.least_consumption_value.toFixed(2)} kWh)</p>
+                    <p>Most Consuming Appliance: ${data.most_consuming} (${data.most_consumption_value.toFixed(2)} kWh)</p>
+                `;
+            } catch (error) {
+                console.error('Error:', error);
+                resultsContainer.innerHTML = `Failed to analyze energy consumption. Error: ${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>
